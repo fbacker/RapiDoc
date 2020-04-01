@@ -88,6 +88,7 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
   const params = authorizationUrl ? new URLSearchParams(authorizationUrl.search) : null;
 
   securityObj.isLoading = true;
+  securityObj.error = null;
   this.requestUpdate();
 
   const requestCompleted = (errorMsg) => {
