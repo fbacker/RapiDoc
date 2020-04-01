@@ -38,13 +38,13 @@ const authorizeRequest = (payload) => {
     headers: headersExpanded,
     body,
   })
-    .then((response) => {
-      if (response.ok) {
-        return response.json();
+    .then((response) => response.json())
+    .then((json) => {
+      if (json.error) {
+        throw Error(json.error);
       }
-      throw Error(response.statusText);
+      return json;
     })
-    .then((json) => json)
     .catch((e) => {
       const err = new Error(e);
       let message = err.message;

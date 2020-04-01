@@ -82,13 +82,19 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
   const checkedScopeEls = [...authFlowDivEl.querySelectorAll('input[type="checkbox"]:checked')];
   const state = (`${Math.random().toString(36)}random`).slice(2, 9);
   const selectedScopes = checkedScopeEls.map((v) => v.value).join(' ');
-  // const receiveUrlObj = new URL(`${window.location.origin}${window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'))}/${this.oauthReceiver}`);
 
   const tokenUrl = authFlow.tokenUrl ? new URL(authFlow.tokenUrl) : null;
   const authorizationUrl = authFlow.authorizationUrl ? new URL(authFlow.authorizationUrl) : null;
   const params = authorizationUrl ? new URLSearchParams(authorizationUrl.search) : null;
 
-  // @todo, how can we show console.errors on gui?
+  securityObj.isLoading = true;
+  this.requestUpdate();
+
+  const requestCompleted = (errorMsg) => {
+    securityObj.isLoading = false;
+    securityObj.error = (errorMsg) ? errorMsg.message : null;
+    this.requestUpdate();
+  };
 
   switch (flowType) {
     case 'password':
@@ -101,8 +107,11 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
         clientId,
         clientSecret,
         tokenUrl,
+      }).then((token) => {
+        if (!token) return requestCompleted(new Error('Return token failed'));
+        requestCompleted(null);
       }).catch((err) => {
-        console.error(err);
+        requestCompleted(err);
       });
       return;
 
@@ -114,11 +123,11 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
         clientSecret,
         tokenUrl,
       }).then((token) => {
-        if (!token) return;
+        if (!token) return requestCompleted(new Error('Return token failed'));
         securityObj.finalKeyValue = `Bearer ${token.access_token}`;
-        this.requestUpdate();
+        requestCompleted(null);
       }).catch((err) => {
-        console.error(err);
+        requestCompleted(err);
       });
       return;
 
@@ -129,11 +138,11 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
         clientSecret,
         tokenUrl,
       }).then((token) => {
-        if (!token) return;
+        if (!token) return requestCompleted(new Error('Return token failed'));
         securityObj.finalKeyValue = `Bearer ${token.access_token}`;
-        this.requestUpdate();
+        requestCompleted(null);
       }).catch((err) => {
-        console.error(err);
+        requestCompleted(err);
       });
       return;
 
@@ -170,13 +179,6 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
   }
 
   /*
-  let redirectUrl = authFlow.redirectUrl ? new URL(authFlow.redirectUrl) : null;
-  if (!redirectUrl) {
-    redirectUrl = new URL(`${window.location.protocol}//${window.location.hostname}:${window.location.port}/examples/oauth-receiver.html`);
-  }
-  */
-
-  /*
   NOTE doesn't support this yet
   if (flowType === 'authorizationCode' && authFlow.usePkceWithAuthorizationCodeGrant) {
     const codeVerifier = generateCodeVerifier();
@@ -195,7 +197,6 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
   for (const key in additionalQueryStringParams) {
     if (typeof additionalQueryStringParams[key] !== 'undefined') {
       params.set(key, additionalQueryStringParams[key]);
-      // query.push([key, additionalQueryStringParams[key]].map(encodeURIComponent).join('='));
     }
   }
 
@@ -207,25 +208,27 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
   if (flowType === 'implicit') {
     callback = (payload) => preAuthorizeImplicit(payload).then((token) => {
       // @todo not tested yet
-      console.log('Missing functionality to handle token', token);
+      if (!token) return requestCompleted(new Error('Return token failed'));
+      requestCompleted(null);
     }).catch((err) => {
-      console.error(err);
+      requestCompleted(err);
     });
   } else if (authFlow.useBasicAuthenticationWithAccessCodeGrant) {
     callback = (payload) => authorizeAccessCodeWithBasicAuthentication(payload).then((token) => {
       // @todo not tested yet
-      console.log('Missing functionality to handle token', token);
+      if (!token) return requestCompleted(new Error('Return token failed'));
+      requestCompleted(null);
     }).catch((err) => {
-      console.error(err);
+      requestCompleted(err);
     });
   } else {
     params.set('show_dialog', true);
     callback = (payload) => authorizeAccessCodeWithFormParams(payload).then((token) => {
-      if (!token) return;
+      if (!token) return requestCompleted(new Error('Return token failed'));
       securityObj.finalKeyValue = `Bearer ${token.access_token}`;
-      this.requestUpdate();
+      requestCompleted(null);
     }).catch((err) => {
-      console.error(err);
+      requestCompleted(err);
     });
   }
 
@@ -233,7 +236,7 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
 
   const w = window.open(authorizationUrl.toString());
   if (!w) {
-    console.error(`RapiDoc: Unable to open ${authorizationUrl.toString()} in a new window`);
+    return requestCompleted(new Error(`Unable to open ${authorizationUrl.toString()} in a new window`));
   }
 
   const handleMessageEventFn = async (ev) => {
@@ -248,16 +251,14 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
     window.removeEventListener('message', handleMessageEventFn, true);
     w.close();
     if (!ev.data) {
-      console.error('RapiDoc: Received no data with authorization message');
+      return requestCompleted(new Error('Received no data with authorization message'));
     }
     const isValid = (ev.data.state === state);
     if (!isValid) {
-      console.warn('RapiDoc: State value did not match.');
-      return;
+      return requestCompleted(new Error("State value sent doesn't match returned value."));
     }
     if (ev.data.error) {
-      console.warn('RapiDoc: Error while receving data');
-      return;
+      return requestCompleted(new Error(ev.data.error));
     }
     if (ev.data) {
       callback({
@@ -271,7 +272,7 @@ function onInvokeOAuth(apiKeyId, flowType, authFlow, e) {
 
 /* eslint-disable indent */
 
-function oAuthFlowTemplate(flowName, clientId, clientSecret, apiKeyId, finalKeyValue, authFlow) {
+function oAuthFlowTemplate(flowName, authSettings, authFlow) {
   let authSite = '';
   try {
     authSite = new URL(authFlow.authorizationUrl).origin;
@@ -310,17 +311,18 @@ function oAuthFlowTemplate(flowName, clientId, clientSecret, apiKeyId, finalKeyV
         `
         : ''
       }
+      ${!authSettings.error ? '' : html`<div style="display:flex; max-height:28px; margin-bottom: 10px; color:var(--red);">${authSettings.error}</div>`}
       <div style="display:flex; max-height:28px;">
-        <input type="text" value = "${clientId}" placeholder="client-id" spellcheck="false" class="oauth-client-id">
-        <input type="password" value = "${clientSecret}" placeholder="client-secret" spellcheck="false" class="oauth-client-secret" style = "margin:0 5px;">
-        ${finalKeyValue
+        <input type="text" value = "${authSettings.clientId}" placeholder="client-id" spellcheck="false" class="oauth-client-id">
+        <input type="password" value = "${authSettings.clientSecret}" placeholder="client-secret" spellcheck="false" class="oauth-client-secret" style = "margin:0 5px;">
+        ${authSettings.finalKeyValue
           ? html`
-            <button class="m-btn thin-border" @click="${(e) => { onClearOAuthKey.call(this, apiKeyId, e); }}"> CLEAR </button>
+            <button class="m-btn thin-border" @click="${(e) => { onClearOAuthKey.call(this, authSettings.apiKeyId, e); }}"> CLEAR </button>
           `
           : html`
             <button class="m-btn thin-border"
-              @click="${(e) => { onInvokeOAuth.call(this, apiKeyId, flowName, authFlow, e); }}"
-            > AUTHORIZE </button>                                    
+              @click="${(e) => { onInvokeOAuth.call(this, authSettings.apiKeyId, flowName, authFlow, e); }}"
+            >${authSettings.isLoading ? 'WORKING' : authSettings.finalKeyValue ? 'RE-AUTHORIZE' : 'AUTHORIZE'}</button>                                    
           `
         }
       </div>
@@ -421,7 +423,7 @@ export default function securitySchemeTemplate(hideAuthenticationRedirectInfo) {
               ? html`
                 <tr>
                   <td colspan="2" style="border:none; padding-left:48px">
-                    ${Object.keys(v.flows).map((f) => oAuthFlowTemplate.call(this, f, v.clientId, v.clientSecret, v.apiKeyId, v.finalKeyValue, v.flows[f]))} 
+                    ${Object.keys(v.flows).map((f) => oAuthFlowTemplate.call(this, f, v, v.flows[f]))} 
                   </td>
                 </tr>    
                 `
