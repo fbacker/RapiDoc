@@ -210,6 +210,7 @@ function groupByTags(openApiSpec, sortTags = false, sortEndpointsBy, allowDuplic
           if (!tagObj) {
             tagObj = {
               show: true,
+              expanded: true,
               name: tag,
               description: tagDescr ? tagDescr.description : '',
               paths: [],

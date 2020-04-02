@@ -112,13 +112,6 @@ export default function endpointTemplate(allowAuthenticationSeperatedCalls, show
           }
         </div>
       </div>
-
-      ${tag.paths.filter((v) => {
-        if (this.matchPaths) {
-          return `${v.method} ${v.path}`.includes(this.matchPaths);
-        }
-      </div>
-    </div>
     ${tag.paths.filter((v) => {
       if (this.matchPaths) {
         return `${v.method} ${v.path}`.includes(this.matchPaths);
