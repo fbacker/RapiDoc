@@ -3,6 +3,7 @@ import { unsafeHTML } from 'lit-html/directives/unsafe-html';
 import marked from 'marked';
 import '@/components/api-request';
 import '@/components/api-response';
+import { pathIsInSearch } from '@/utils/common-utils';
 import { callbackTemplate } from '@/templates/expanded-endpoint-template';
 
 /* eslint-disable indent */
@@ -112,18 +113,20 @@ export default function endpointTemplate(allowAuthenticationSeperatedCalls, show
           }
         </div>
       </div>
-    ${tag.paths.filter((v) => {
-      if (this.matchPaths) {
-        return `${v.method} ${v.path}`.includes(this.matchPaths);
-      }
-      return true;
-    }).map((path) => html`
-      <div id='${path.method}-${path.path.replace(/[\s#:?&=]/g, '-')}' class='m-endpoint regular-font ${path.method} ${path.expanded ? 'expanded' : 'collapsed'}'>
-        ${endpointHeadTemplate.call(this, path)}      
-        ${path.expanded ? endpointBodyTemplate.call(this, path, allowAuthenticationSeperatedCalls, showOperationRequirements) : ''}
-      </div>
-    `)
-    }`)
+
+      ${tag.paths.filter((v) => {
+        if (this.matchPaths) {
+          return pathIsInSearch(this.matchPaths, v);
+        }
+        return true;
+      }).map((path) => html`
+        <div id='${path.method}-${path.path.replace(/[\s#:?&=]/g, '-')}' class='m-endpoint regular-font ${path.method} ${path.expanded ? 'expanded' : 'collapsed'}'>
+          ${endpointHeadTemplate.call(this, path)}      
+          ${path.expanded ? endpointBodyTemplate.call(this, path) : ''}
+        </div>
+      `)
+    }
+    </div>`)
   }`;
 }
 /* eslint-enable indent */
