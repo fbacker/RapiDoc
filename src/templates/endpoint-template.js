@@ -122,7 +122,7 @@ export default function endpointTemplate(allowAuthenticationSeperatedCalls, show
       }).map((path) => html`
         <div id='${path.method}-${path.path.replace(/[\s#:?&=]/g, '-')}' class='m-endpoint regular-font ${path.method} ${path.expanded ? 'expanded' : 'collapsed'}'>
           ${endpointHeadTemplate.call(this, path)}      
-          ${path.expanded ? endpointBodyTemplate.call(this, path) : ''}
+          ${path.expanded ? endpointBodyTemplate.call(this, path, allowAuthenticationSeperatedCalls, showOperationRequirements) : ''}
         </div>
       `)
     }
