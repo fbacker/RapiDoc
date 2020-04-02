@@ -163,6 +163,7 @@ function groupByTags(openApiSpec, sortTags = false, sortEndpointsBy, allowDuplic
       name: v.name,
       description: v.description,
       paths: [],
+      expanded: true,
     }))
     : [];
   // For each path find the tag and push it into the corrosponding tag
